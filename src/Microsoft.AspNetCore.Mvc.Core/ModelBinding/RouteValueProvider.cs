@@ -3,7 +3,6 @@
 
 using System;
 using System.Globalization;
-using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding
@@ -57,9 +56,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
             Culture = culture;
         }
 
-#pragma warning disable PUB0001 // Pubternal type in public API
         protected PrefixContainer PrefixContainer
-#pragma warning restore PUB0001
         {
             get
             {
@@ -88,8 +85,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
                 throw new ArgumentNullException(nameof(key));
             }
 
-            object value;
-            if (_values.TryGetValue(key, out value))
+            if (_values.TryGetValue(key, out var value))
             {
                 var stringValue = value as string ?? value?.ToString() ?? string.Empty;
                 return new ValueProviderResult(stringValue, Culture);
