@@ -6,7 +6,6 @@ using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Extensions.ApiDescription.Tool.Commands
 {
@@ -81,9 +80,8 @@ namespace Microsoft.Extensions.ApiDescription.Tool.Commands
                     Reporter.WriteWarning(Resources.FormatMethodNotFound(methodName, serviceName));
                     return false;
                 }
-                else if (method.ReturnType != typeof(Task))
+                else if (!typeof(Task).IsAssignableFrom(method.ReturnType))
                 {
-                    // Do not support Task<T> because we do nothing with the Result.
                     Reporter.WriteWarning(Resources.FormatMethodReturnTypeUnsupported(
                         methodName,
                         serviceName,
@@ -99,6 +97,7 @@ namespace Microsoft.Extensions.ApiDescription.Tool.Commands
                     return false;
                 }
 
+                // Create the output FileStream last to avoid corrupting an existing file or writing partial data.
                 var stream = new MemoryStream();
                 using (var writer = new StreamWriter(stream))
                 {
@@ -110,9 +109,10 @@ namespace Microsoft.Extensions.ApiDescription.Tool.Commands
                         return false;
                     }
 
-                    if (!resultTask.Wait(TimeSpan.FromMinutes(1)))
+                    var finished = Task.WhenAny(resultTask, Task.Delay(TimeSpan.FromMinutes(1)));
+                    if (!ReferenceEquals(resultTask, finished))
                     {
-                        Reporter.WriteWarning($"");
+                        Reporter.WriteWarning(Resources.FormatMethodTimedOut(methodName, serviceName, 1));
                         return false;
                     }
 
@@ -126,9 +126,12 @@ namespace Microsoft.Extensions.ApiDescription.Tool.Commands
 
                 return true;
             }
-            catch (AggregateException ex)
+            catch (AggregateException ex) when (ex.InnerException != null)
             {
-                Reporter.WriteWarning(FormatException(ex.InnerException));
+                foreach (var innerException in ex.Flatten().InnerExceptions)
+                {
+                    Reporter.WriteWarning(FormatException(innerException));
+                }
             }
             catch (Exception ex)
             {
